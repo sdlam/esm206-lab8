@@ -15,22 +15,115 @@ library(here)
 library(corrplot)
 ```
 
-## R Markdown
+### Read in slo_homes.csv data 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+homes <- read_csv(here("data", "slo_homes.csv"))
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+#use unique(homes$City) to check cities in dataframe 
 ```
 
-## Including Plots
+### Create a subset with 4 cities 
 
-You can also embed plots, for example:
+Tasl: createa a seubset called homes_subset) that only contains observations where the city is: 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+- "San Luis Obispo"
+_ "Atascadero" 
+- "Arroyo Grange" 
+- "Santa Maria-Orcutt" 
+ 
+```{r}
+homes_subset <- homes %>% 
+  filter(City %in% c("San Luis Obispo", "Atascadero", "Arroyo Grande", "Santa Maria-Orcutt"))
+```
+ 
+### A little exploration 
+
+Task: Create a summary table that has the mean an standard deviation of hom eprices grouped by city and sale status 
+
+```{r, include = FALSE, eval = FALSE}
+#eval = FALSE means that the code doesn't run at all, can be useful for exploratory summary statistics on really big datasets 
+home_summary <- homes_subset %>% 
+  group_by(City, Status) %>% 
+  summarize(mean_price = mean(Price, na.rm = TRUE),
+            sd_price = sd(Price, na.rm = TRUE))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Task: explore the relationship between square footage and home price (from homes_subset) in a scatterplot. 
+
+```{r}
+ggplot(data = homes_subset, aes(x = SqFt, y = Price)) +
+  geom_point(aes(color = City)) +
+  scale_y_continuous(breaks = c(0, 2000000, 4000000),
+                     labels = c('0', '2,000,000', '4,000,000')) +
+  theme_minimal() +
+  geom_smooth(method = "lm")
+```
+
+### Try a few linear models 
+
+Use multiple linear regression to investigate relationships between several predictor variables and home Price, using homes_subset. 
+
+Create 2 different permutations of this model: 
+
+(1) Price ~ City, Bedrooms, Bathrooms, SqFt, Status
+(2) Price ~ City, SqFt, Status(lm2)
+(3) Try another one (lm3)
+
+```{r}
+lm1 <- lm(data = homes_subset, Price ~ City + Bedrooms + Bathrooms + SqFt + Status)
+# R^2 = 54% this means that 54% of variance in home price is explained by variables in this model 
+
+lm2 <- lm(data = homes_subset, Price ~ City +SqFt +Status) 
+
+lm3 <- lm(data = homes_subset, Price ~ SqFt)
+
+# If I wanted San Luis Obispo to be the reference level: 
+#Use fct_relevel() to specify a new reference level 
+
+new_homes_subset <- homes_subset %>% 
+  mutate(City = fct_relevel(City, "San Luis Obispo"))
+```
+
+### Explore correlations between quantitative variables 
+
+Task: make a subset called homes_quant (starting from homes_subset) that only contains the variables from Price through SqFt). 
+
+```{r}
+homes_quant <- homes_subset %>% 
+  select(Price:SqFt)
+
+homes_cor <- cor(homes_quant)
+
+corrplot(homes_cor, method = "ellipse")
+```
+
+### Compare AIC values
+
+```{r}
+AIC(lm1)
+AIC(lm2)
+```
+
+### Use modelsummary() to return multiple model outputs 
+
+```{r}
+modelsummary(list(lm1, lm2, lm3))
+```
+
+### Use broom::augment() to return the predictions for existing bservaions 
+
+```{r}
+home_predictions <- augment(lm1)
+
+#Make a histogram of the residuals from this model (lm1)
+
+ggplot(data = home_predictions, aes(x = .resid)) +
+  geom_histogram()
+```
+
+
+
+
+
+
